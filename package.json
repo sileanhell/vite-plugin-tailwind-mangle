@@ -1,0 +1,31 @@
+{
+  "name": "vite-plugin-tailwind-mangle",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc -p . --noEmit",
+    "test": "bun test",
+    "release": "bun run typecheck && bun test && bunx jsr publish"
+  },
+  "peerDependencies": {
+    "tailwindcss": "^4.1.0",
+    "vite": ">=5.0.0"
+  },
+  "dependencies": {
+    "@babel/core": "^7.29.0",
+    "@tailwindcss/node": "^4.1.0",
+    "@tailwindcss/oxide": "^4.1.0",
+    "postcss": "^8.5.28",
+    "postcss-selector-parser": "^7.1.6"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/babel__core": "^7.20.5",
+    "@types/bun": "^1.4.2",
+    "@types/node": "^26.6.3",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1"
+  }
+}
