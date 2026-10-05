@@ -8,6 +8,7 @@ const map = new Map([
   ["p-4", "c"],
   ["md:block", "d"],
   ["text-sm", "e"],
+  ["relative", "relative"],
 ]);
 
 function transform(code: string) {
@@ -64,6 +65,12 @@ describe("class attributes", () => {
 describe("other strings", () => {
   test("renames strings made only of classes", () => {
     expect(transform(`const BUTTON = "flex p-4";`).code).toContain(`const BUTTON = "a c";`);
+  });
+
+  test("treats preserved classes (mapped to themselves) as classes", () => {
+    const { code } = transform(`const BOX = "relative p-4"; el.style.position = "relative";`);
+    expect(code).toContain(`const BOX = "relative c";`);
+    expect(code).toContain(`el.style.position = "relative";`);
   });
 
   test("leaves mixed or unknown strings intact", () => {

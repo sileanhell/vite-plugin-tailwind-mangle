@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { resolve } from "node:path";
 import { collectCssClasses } from "../src/css.ts";
 
-type BuildOutput = { css: string; js: string; html: string };
+type BuildOutput = { css: string; js: string; html: string; cssFiles: string[] };
 
 /** Builds the fixture in a child process; see build-fixture.ts. RegExps go as { regexp }. */
 async function buildFixture(options: object = {}): Promise<BuildOutput> {
@@ -24,7 +24,7 @@ describe("vite build", () => {
     const { css, js, html } = await buildFixture();
     const cssClasses = collectCssClasses(css);
 
-    for (const original of ["flex", "items-center", "bg-black", "card", "rounded-lg", "2xl:p-8", "hover:bg-blue-600", "w-1/2"]) {
+    for (const original of ["items-center", "bg-black", "card", "rounded-lg", "2xl:p-8", "hover:bg-blue-600", "w-1/2"]) {
       expect(cssClasses.has(original)).toBe(false);
     }
 
@@ -44,6 +44,32 @@ describe("vite build", () => {
     expect(cssClasses.has("items-center")).toBe(true);
     expect(html).toContain(`<div id="app" class="flex items-center">`);
     expect(html).toMatch(/<body class="tw-[a-z0-9]+ tw-[a-z0-9]+">/);
+  });
+
+  test("keeps classes that are also CSS values, so style strings stay valid", async () => {
+    const { css, js, html } = await buildFixture();
+    const cssClasses = collectCssClasses(css);
+    for (const name of ["flex", "hidden", "ease-in-out"]) expect(cssClasses.has(name)).toBe(true);
+    expect(js).toContain(`"hidden"`);
+    expect(js).toContain(`"ease-in-out"`);
+    expect(html).toMatch(/<div id="app" class="flex [a-z0-9]+">/);
+    // A kept class next to a renamed one: the string is still treated as classes
+    const row = js.match(/"relative ([a-z0-9]+)"/)!;
+    expect(cssClasses.has(row[1])).toBe(true);
+  });
+
+  test("renames CSS keyword classes when preserveCssKeywords is off", async () => {
+    const { css, js } = await buildFixture({ preserveCssKeywords: false });
+    const cssClasses = collectCssClasses(css);
+    for (const name of ["flex", "hidden", "ease-in-out"]) expect(cssClasses.has(name)).toBe(false);
+    expect(js).not.toContain(`"ease-in-out"`);
+  });
+
+  test("changes the CSS file hash when only the class map changes", async () => {
+    // Same source CSS, different names: a stale cached stylesheet must not match new markup
+    const [plain, prefixed] = await Promise.all([buildFixture(), buildFixture({ prefix: "tw-" })]);
+    expect(plain.cssFiles).toHaveLength(1);
+    expect(prefixed.cssFiles[0]).not.toBe(plain.cssFiles[0]);
   });
 
   test("gives the same names in independent builds", async () => {

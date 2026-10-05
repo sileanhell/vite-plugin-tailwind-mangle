@@ -23,4 +23,6 @@ const text = (extension: string) =>
     .map((file) => (file.type === "chunk" ? file.code : String(file.source)))
     .join("\n");
 
-process.stdout.write(JSON.stringify({ css: text(".css"), js: text(".js"), html: text(".html") }));
+const cssFiles = output.output.filter((file) => file.fileName.endsWith(".css")).map((file) => file.fileName);
+
+process.stdout.write(JSON.stringify({ css: text(".css"), js: text(".js"), html: text(".html"), cssFiles }));

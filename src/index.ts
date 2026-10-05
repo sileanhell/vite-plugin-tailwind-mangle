@@ -25,7 +25,7 @@ import { resolve } from "node:path";
 import process from "node:process";
 import type { Plugin } from "vite";
 import { renameStringsPlugin } from "./babel-plugin.ts";
-import { buildClassMap, type ClassFilter } from "./class-map.ts";
+import { buildClassMap, CSS_KEYWORD_CLASSES, type ClassFilter } from "./class-map.ts";
 import { renameCssClasses } from "./css.ts";
 
 export type TailwindMangleOptions = {
@@ -39,6 +39,12 @@ export type TailwindMangleOptions = {
   include?: string | string[];
   /** Classes that keep their names, e.g. ones toggled by third-party scripts. */
   preserve?: ClassFilter[];
+  /**
+   * Keep the names of classes that are also CSS values (`hidden`, `flex`, `absolute`, `ease-in-out`, …),
+   * so strings like `el.style.overflow = "hidden"` are not broken by renaming.
+   * @default true
+   */
+  preserveCssKeywords?: boolean;
   /**
    * JSX attributes whose values are class lists.
    * @default `class`, `className`, `classList` and props ending in `Class` / `ClassName`
@@ -54,6 +60,7 @@ export type { ClassFilter };
 
 const DEFAULT_CLASS_ATTRIBUTES = /^(class|className|classList)$|Class(Name)?$/;
 const SCRIPT_FILE = /\.[cm]?[jt]sx?$/;
+const CSS_REQUEST = /\.(css|less|sass|scss|styl|stylus|pcss|postcss|sss)(\?|$)/;
 const HTML_CLASS_ATTRIBUTE = /(\sclass\s*=\s*)(["'])(.*?)\2/gs;
 
 const normalizePath = (path: string) => path.replaceAll("\\", "/");
@@ -62,7 +69,7 @@ const normalizePath = (path: string) => path.replaceAll("\\", "/");
  * Production-only renaming of Tailwind classes to short opaque names (`flex items-center` → `a b`),
  * consistently in CSS, JS/JSX and `index.html`, across all build environments.
  */
-export default function tailwindMangle(options: TailwindMangleOptions): Plugin {
+export default function tailwindMangle(options: TailwindMangleOptions): Plugin[] {
   const prefix = options.prefix ?? "";
   if (prefix && !/^-?[A-Za-z_][\w-]*$/.test(prefix)) {
     throw new Error(`[tailwind-mangle] prefix "${prefix}" is not a valid CSS identifier start`);
@@ -79,7 +86,7 @@ export default function tailwindMangle(options: TailwindMangleOptions): Plugin {
       cssFile: resolve(root, options.css),
       root,
       prefix,
-      preserve: options.preserve ?? [],
+      preserve: [...(options.preserve ?? []), ...(options.preserveCssKeywords === false ? [] : CSS_KEYWORD_CLASSES)],
     }));
 
   const isIncluded = (id: string) => {
@@ -91,68 +98,86 @@ export default function tailwindMangle(options: TailwindMangleOptions): Plugin {
     );
   };
 
-  return {
-    name: "vite-plugin-tailwind-mangle",
-    apply: "build",
-    enforce: "pre",
+  return [
+    {
+      name: "vite-plugin-tailwind-mangle",
+      apply: "build",
+      enforce: "pre",
 
-    configResolved(config) {
-      root = config.root;
-      const include = options.include ?? ".";
-      includeDirs = (Array.isArray(include) ? include : [include]).map((dir) =>
-        normalizePath(resolve(root, dir)).replace(/\/$/, ""),
-      );
-    },
+      configResolved(config) {
+        root = config.root;
+        const include = options.include ?? ".";
+        includeDirs = (Array.isArray(include) ? include : [include]).map((dir) =>
+          normalizePath(resolve(root, dir)).replace(/\/$/, ""),
+        );
+      },
 
-    buildStart() {
-      // Recomputed per build so `--watch` picks up new classes; deterministic across environments
-      classMap = undefined;
-    },
+      buildStart() {
+        // Recomputed per build so `--watch` picks up new classes; deterministic across environments
+        classMap = undefined;
+      },
 
-    async transform(code, id) {
-      if (!isIncluded(id)) return;
-      const map = await getClassMap();
-      const result = await babel.transformAsync(code, {
-        filename: id.split("?")[0],
-        babelrc: false,
-        configFile: false,
-        sourceMaps: true,
-        parserOpts: { plugins: ["jsx", "typescript"] },
-        generatorOpts: { jsescOption: { minimal: true } },
-        plugins: [
-          renameStringsPlugin({
-            map,
-            classAttributes,
-            verbose,
-            warn: (message) => this.warn(`${message} (${id})`),
-          }),
-        ],
-      });
-      if (!result?.code) return;
-      return { code: result.code, map: result.map };
-    },
+      async transform(code, id) {
+        if (!isIncluded(id)) return;
+        const map = await getClassMap();
+        const result = await babel.transformAsync(code, {
+          filename: id.split("?")[0],
+          babelrc: false,
+          configFile: false,
+          sourceMaps: true,
+          parserOpts: { plugins: ["jsx", "typescript"] },
+          generatorOpts: { jsescOption: { minimal: true } },
+          plugins: [
+            renameStringsPlugin({
+              map,
+              classAttributes,
+              verbose,
+              warn: (message) => this.warn(`${message} (${id})`),
+            }),
+          ],
+        });
+        if (!result?.code) return;
+        return { code: result.code, map: result.map };
+      },
 
-    async transformIndexHtml(html) {
-      const map = await getClassMap();
-      return html.replace(HTML_CLASS_ATTRIBUTE, (_, start: string, quote: string, value: string) => {
-        const renamed = value
-          .split(/(\s+)/)
-          .map((part) => map.get(part) ?? part)
-          .join("");
-        return `${start}${quote}${renamed}${quote}`;
-      });
-    },
+      async transformIndexHtml(html) {
+        const map = await getClassMap();
+        return html.replace(HTML_CLASS_ATTRIBUTE, (_, start: string, quote: string, value: string) => {
+          const renamed = value
+            .split(/(\s+)/)
+            .map((part) => map.get(part) ?? part)
+            .join("");
+          return `${start}${quote}${renamed}${quote}`;
+        });
+      },
 
-    async generateBundle(_, bundle) {
-      const map = await getClassMap();
-      for (const asset of Object.values(bundle)) {
-        if (asset.type !== "asset" || !asset.fileName.endsWith(".css")) continue;
-        const { css, unknown } = renameCssClasses(String(asset.source), map);
-        asset.source = css;
-        if (verbose && unknown.size) {
-          this.warn(`${asset.fileName}: classes kept as is: ${[...unknown].join(", ")}`);
+      async generateBundle(_, bundle) {
+        // Safety net for CSS that skipped the transform below. Renaming twice is a no-op:
+        // generated names never collide with original classes
+        const map = await getClassMap();
+        const generated = new Set(map.values());
+        for (const asset of Object.values(bundle)) {
+          if (asset.type !== "asset" || !asset.fileName.endsWith(".css")) continue;
+          const { css, unknown } = renameCssClasses(String(asset.source), map);
+          asset.source = css;
+          const reported = [...unknown].filter((name) => !generated.has(name));
+          if (verbose && reported.length) {
+            this.warn(`${asset.fileName}: classes kept as is: ${reported.join(", ")}`);
+          }
         }
-      }
+      },
     },
-  };
+    {
+      // Renames CSS before Vite hashes the asset name, so a changed class map gives a new file name
+      // and browsers never pair a cached stylesheet with new markup. No `enforce`: runs after Tailwind
+      // and Vite's own CSS processing, when the module is plain CSS.
+      name: "vite-plugin-tailwind-mangle:css",
+      apply: "build",
+      async transform(code, id) {
+        if (!CSS_REQUEST.test(id) || id.includes("?inline")) return;
+        const { css } = renameCssClasses(code, await getClassMap());
+        return { code: css, map: null };
+      },
+    },
+  ];
 }

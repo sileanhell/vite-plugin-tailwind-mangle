@@ -52,6 +52,7 @@ export default defineConfig({
 | `css`             | `string`               | — (required)                                         | Tailwind entry stylesheet (the one with `@import "tailwindcss"`), relative to the Vite root.    |
 | `include`         | `string \| string[]`   | Vite root                                            | Directories whose `.js/.ts/.jsx/.tsx` files are rewritten. `node_modules` is always skipped.    |
 | `preserve`        | `(string \| RegExp)[]` | `[]`                                                 | Classes that keep their names, e.g. ones added by third-party scripts or server-side HTML.     |
+| `preserveCssKeywords` | `boolean`          | `true`                                               | Keep the names of classes that are also CSS values (`hidden`, `flex`, `absolute`, `ease-in-out`, `uppercase`, …), so `el.style.overflow = "hidden"` or `{ easing: "ease-in-out" }` are not broken. |
 | `classAttributes` | `RegExp`               | `class`, `className`, `classList`, `*Class`, `*ClassName` | JSX attributes whose values are class lists. Props like `iconClass="p-2"` are covered by default. |
 | `prefix`          | `string`               | `""`                                                 | Prepended to every generated name (`"tw-"` → `tw-a`, `tw-b`, …).                               |
 | `verbose`         | `boolean`              | `false`                                              | Log every string renamed outside class attributes, and CSS classes left as is.                 |
@@ -67,7 +68,7 @@ export default defineConfig({
 ## Limitations
 
 - **Build class names from whole literals.** `"text-" + size` cannot be renamed (Tailwind cannot detect it either). Use full names: `size === "lg" ? "text-lg" : "text-sm"`.
-- **A string made only of class names is treated as classes.** `const state = "hidden"` becomes `const state = "b"` if `hidden` is a Tailwind class in your project. Add such words to `preserve` or avoid bare class names as non-class values.
+- **A string made only of class names is treated as classes.** Classes named like CSS values (`hidden`, `visible`, `ease-in`, …) keep their names by default, so `el.style.visibility = "hidden"` works. Other words that happen to be classes are still renamed: `const state = "grow"` becomes `const state = "b"`. Add such words to `preserve` or avoid bare class names as non-class values.
 - **JSX-based frameworks only.** Vue, Svelte and Astro templates are not processed.
 - **Bundled CSS files only.** CSS inlined via `?inline` or CSS-in-JS is not processed.
 - **Third-party CSS**: a class in a library stylesheet that coincides with a Tailwind class (e.g. `.hidden`) is renamed too, while the library's markup is not. Add it to `preserve`.
