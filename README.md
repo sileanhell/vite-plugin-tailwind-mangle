@@ -29,7 +29,6 @@ deno add -D jsr:@sileanhell/vite-plugin-tailwind-mangle  # deno
 ## Usage
 
 ```ts
-// vite.config.ts
 import tailwindcss from "@tailwindcss/vite";
 import tailwindMangle from "@sileanhell/vite-plugin-tailwind-mangle";
 import { defineConfig } from "vite";
@@ -38,7 +37,6 @@ import solid from "vite-plugin-solid"; // or react(), preact(), ...
 export default defineConfig({
   plugins: [
     tailwindcss(),
-    // Put it before the framework plugin: strings are rewritten before JSX is compiled
     tailwindMangle({ css: "src/styles.css", include: "src" }),
     solid(),
   ],
@@ -59,7 +57,7 @@ export default defineConfig({
 
 ## How it works
 
-1. At build start the plugin compiles your Tailwind entry with `@tailwindcss/node`, collects every class in the output (utilities and your own classes such as `.card { @apply ... }`), sorts them and assigns short names. Sorting makes the map identical in every build environment without sharing state.
+1. At build start the plugin compiles your Tailwind entry with `@tailwindcss/node`, collects every class in the output (utilities and your own classes such as `.card { @apply ... }`), sorts them and assigns short names. Sorting makes the map identical in every build environment without sharing state. Classes named inside arbitrary variants (`active` in `[&.active]:text-white`, `is-open` in `group-[.is-open]:block`) keep their names: they are usually set by a router or a UI library, whose code is not rewritten.
 2. Before your framework compiles JSX, string literals in your sources are rewritten with Babel:
    - in class attributes (and any expression inside them, e.g. `cn(...)`, ternaries, template literals) every known class is renamed;
    - anywhere else a string is renamed only when all of its words are classes — this covers constants like `const button = "px-4 py-2 rounded"`.

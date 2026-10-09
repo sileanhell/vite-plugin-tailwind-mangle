@@ -92,9 +92,7 @@ export default function tailwindMangle(options: TailwindMangleOptions): Plugin[]
   const isIncluded = (id: string) => {
     const file = normalizePath(id.split("?")[0]);
     return (
-      SCRIPT_FILE.test(file) &&
-      !file.includes("/node_modules/") &&
-      includeDirs.some((dir) => file === dir || file.startsWith(`${dir}/`))
+      SCRIPT_FILE.test(file) && !file.includes("/node_modules/") && includeDirs.some((dir) => file === dir || file.startsWith(`${dir}/`))
     );
   };
 
@@ -107,13 +105,10 @@ export default function tailwindMangle(options: TailwindMangleOptions): Plugin[]
       configResolved(config) {
         root = config.root;
         const include = options.include ?? ".";
-        includeDirs = (Array.isArray(include) ? include : [include]).map((dir) =>
-          normalizePath(resolve(root, dir)).replace(/\/$/, ""),
-        );
+        includeDirs = (Array.isArray(include) ? include : [include]).map((dir) => normalizePath(resolve(root, dir)).replace(/\/$/, ""));
       },
 
       buildStart() {
-        // Recomputed per build so `--watch` picks up new classes; deterministic across environments
         classMap = undefined;
       },
 
@@ -152,8 +147,6 @@ export default function tailwindMangle(options: TailwindMangleOptions): Plugin[]
       },
 
       async generateBundle(_, bundle) {
-        // Safety net for CSS that skipped the transform below. Renaming twice is a no-op:
-        // generated names never collide with original classes
         const map = await getClassMap();
         const generated = new Set(map.values());
         for (const asset of Object.values(bundle)) {
@@ -168,9 +161,6 @@ export default function tailwindMangle(options: TailwindMangleOptions): Plugin[]
       },
     },
     {
-      // Renames CSS before Vite hashes the asset name, so a changed class map gives a new file name
-      // and browsers never pair a cached stylesheet with new markup. No `enforce`: runs after Tailwind
-      // and Vite's own CSS processing, when the module is plain CSS.
       name: "vite-plugin-tailwind-mangle:css",
       apply: "build",
       async transform(code, id) {

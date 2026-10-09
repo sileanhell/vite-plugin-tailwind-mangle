@@ -32,7 +32,6 @@ export function renameStringsPlugin(options: RenameStringsOptions): PluginObj {
   };
 
   const isInClassAttribute = (path: NodePath) => {
-    // Stop at functions: a callback inside `class={...}` is not a class value
     const attribute = path.findParent((parent) => parent.isJSXAttribute() || parent.isFunction());
     return (
       attribute !== null &&
@@ -55,9 +54,7 @@ export function renameStringsPlugin(options: RenameStringsOptions): PluginObj {
       t.isTSExternalModuleReference(parent) ||
       t.isTSImportType(parent) ||
       (t.isCallExpression(parent) && (t.isImport(parent.callee) || t.isIdentifier(parent.callee, { name: "require" }))) ||
-      // Object keys are lookups, except `classList={{ "a b": on }}`
       ((t.isObjectProperty(parent) || t.isObjectMethod(parent)) && parent.key === node && !inClassAttribute) ||
-      // Values of attributes other than class attributes
       (parentPath?.isJSXAttribute() === true && !inClassAttribute)
     );
   };
@@ -75,7 +72,6 @@ export function renameStringsPlugin(options: RenameStringsOptions): PluginObj {
         path.node.extra = { raw: JSON.stringify(renamed), rawValue: renamed };
       },
       TemplateLiteral(path) {
-        // Only in class attributes: elsewhere template fragments are not reliably class names
         if (t.isTaggedTemplateExpression(path.parent) || !isInClassAttribute(path)) return;
         const { quasis } = path.node;
         quasis.forEach((quasi, index) => {
@@ -83,7 +79,6 @@ export function renameStringsPlugin(options: RenameStringsOptions): PluginObj {
           const last = parts.length - 1;
           const renamed = parts
             .map((part, i) => {
-              // A token glued to an interpolation (`${size}-4`) is a fragment, keep it
               const glued = (i === 0 && index > 0) || (i === last && index < quasis.length - 1);
               return glued ? part : (map.get(part) ?? part);
             })

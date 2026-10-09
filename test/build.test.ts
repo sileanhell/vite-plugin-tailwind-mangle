@@ -53,9 +53,17 @@ describe("vite build", () => {
     expect(js).toContain(`"hidden"`);
     expect(js).toContain(`"ease-in-out"`);
     expect(html).toMatch(/<div id="app" class="flex [a-z0-9]+">/);
-    // A kept class next to a renamed one: the string is still treated as classes
     const row = js.match(/"relative ([a-z0-9]+)"/)!;
     expect(cssClasses.has(row[1])).toBe(true);
+  });
+
+  test("keeps classes named inside arbitrary variants", async () => {
+    const { css, js } = await buildFixture();
+    const cssClasses = collectCssClasses(css);
+    expect(cssClasses.has("active")).toBe(true);
+    expect(cssClasses.has("[&.active]:text-white")).toBe(false);
+    const variant = css.match(/\.([a-z0-9]+)\.active\b/)![1];
+    expect(js).toMatch(new RegExp(`"[a-z0-9]+ ${variant}"`));
   });
 
   test("renames CSS keyword classes when preserveCssKeywords is off", async () => {
@@ -66,7 +74,6 @@ describe("vite build", () => {
   });
 
   test("changes the CSS file hash when only the class map changes", async () => {
-    // Same source CSS, different names: a stale cached stylesheet must not match new markup
     const [plain, prefixed] = await Promise.all([buildFixture(), buildFixture({ prefix: "tw-" })]);
     expect(plain.cssFiles).toHaveLength(1);
     expect(prefixed.cssFiles[0]).not.toBe(plain.cssFiles[0]);

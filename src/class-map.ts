@@ -13,7 +13,6 @@ export type ClassFilter = string | RegExp;
  * so these keep their names: the string is then correct whichever way it is used.
  */
 export const CSS_KEYWORD_CLASSES: readonly ClassFilter[] = [
-  // display
   "block",
   "inline",
   "inline-block",
@@ -26,21 +25,17 @@ export const CSS_KEYWORD_CLASSES: readonly ClassFilter[] = [
   "list-item",
   /^(inline-)?table(-(caption|cell|column|column-group|footer-group|header-group|row|row-group))?$/,
   "hidden",
-  // position
   "static",
   "fixed",
   "absolute",
   "relative",
   "sticky",
-  // visibility
   "visible",
   "invisible",
   "collapse",
-  // easing
   "ease-in",
   "ease-out",
   "ease-in-out",
-  // font and text
   "italic",
   "underline",
   "overline",
@@ -53,6 +48,25 @@ export const CSS_KEYWORD_CLASSES: readonly ClassFilter[] = [
 
 export function matchesAny(name: string, patterns: readonly ClassFilter[]): boolean {
   return patterns.some((pattern) => (typeof pattern === "string" ? pattern === name : pattern.test(name)));
+}
+
+const SELECTOR_CLASS = /\.(-?[A-Za-z_][\w-]*)/g;
+
+/**
+ * Classes named inside arbitrary variants (`[&.active]:text-white`, `group-[.is-open]:block`).
+ * They are usually set by code the plugin does not rewrite (a router's active link, a UI library),
+ * so they keep their names. Only names that are also classes in the CSS count, so `bg-[url(a.png)]`
+ * does not keep `png`.
+ */
+export function classesInArbitraryVariants(classes: ReadonlySet<string>): Set<string> {
+  const found = new Set<string>();
+  for (const name of classes) {
+    if (!name.includes("[")) continue;
+    for (const [, referenced] of name.matchAll(SELECTOR_CLASS)) {
+      if (classes.has(referenced)) found.add(referenced);
+    }
+  }
+  return found;
 }
 
 /**
@@ -78,13 +92,13 @@ export async function buildClassMap(options: {
         : [{ ...compiler.root, negated: false }];
   const scanner = new Scanner({ sources: [...roots, ...compiler.sources] });
   const classes = collectCssClasses(compiler.build(scanner.scan()));
+  const variantClasses = classesInArbitraryVariants(classes);
 
-  // Generated names must not clash with classes that keep their original name
   const names = generateNames(options.prefix, classes);
   const map = new Map<string, string>();
   for (const name of [...classes].sort()) {
-    // Preserved classes map to themselves: they still count as classes, so `"relative px-4"` gets renamed
-    map.set(name, matchesAny(name, options.preserve) ? name : names.next().value!);
+    const keep = variantClasses.has(name) || matchesAny(name, options.preserve);
+    map.set(name, keep ? name : names.next().value!);
   }
   return map;
 }

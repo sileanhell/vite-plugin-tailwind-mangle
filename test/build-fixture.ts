@@ -1,11 +1,8 @@
-// Builds the fixture app and prints the output as JSON.
-// Runs in its own process: Vite does not load inside the `bun test` runtime.
 import tailwindcss from "@tailwindcss/vite";
 import { resolve } from "node:path";
 import { build, type Rollup } from "vite";
 import tailwindMangle, { type TailwindMangleOptions } from "../src/index.ts";
 
-// RegExp values are passed as { regexp: "source" }
 const options = JSON.parse(process.argv[2] ?? "{}", (_, value) =>
   value && typeof value === "object" && "regexp" in value ? new RegExp(value.regexp) : value,
 ) as Partial<TailwindMangleOptions>;
