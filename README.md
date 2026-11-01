@@ -18,19 +18,18 @@ Requires Tailwind CSS v4.1+ and Vite 5+.
 
 ## Install
 
-The package is published on [JSR](https://jsr.io/@sileanhell/vite-plugin-tailwind-mangle):
-
 ```sh
-npx jsr add -D @sileanhell/vite-plugin-tailwind-mangle   # npm / pnpm / yarn
-bunx jsr add -D @sileanhell/vite-plugin-tailwind-mangle  # bun
-deno add -D jsr:@sileanhell/vite-plugin-tailwind-mangle  # deno
+npm i -D vite-plugin-tailwind-mangle
+pnpm add -D vite-plugin-tailwind-mangle
+yarn add -D vite-plugin-tailwind-mangle
+bun add -d vite-plugin-tailwind-mangle
 ```
 
 ## Usage
 
 ```ts
 import tailwindcss from "@tailwindcss/vite";
-import tailwindMangle from "@sileanhell/vite-plugin-tailwind-mangle";
+import tailwindMangle from "vite-plugin-tailwind-mangle";
 import { defineConfig } from "vite";
 import solid from "vite-plugin-solid"; // or react(), preact(), ...
 

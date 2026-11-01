@@ -6,7 +6,7 @@
  * ```ts
  * // vite.config.ts
  * import tailwindcss from "@tailwindcss/vite";
- * import tailwindMangle from "@sileanhell/vite-plugin-tailwind-mangle";
+ * import tailwindMangle from "vite-plugin-tailwind-mangle";
  * import { defineConfig } from "vite";
  *
  * export default defineConfig({

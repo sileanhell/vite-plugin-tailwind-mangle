@@ -1,12 +1,42 @@
 {
   "name": "vite-plugin-tailwind-mangle",
-  "private": true,
+  "version": "0.2.1",
+  "description": "Vite plugin that renames Tailwind CSS classes to short opaque names in production builds.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sileanhell/vite-plugin-tailwind-mangle.git"
+  },
+  "keywords": [
+    "vite",
+    "vite-plugin",
+    "tailwindcss",
+    "mangle",
+    "minify",
+    "css"
+  ],
   "type": "module",
-  "exports": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
   "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "typecheck": "tsc -p . --noEmit",
     "test": "bun test",
-    "release": "bun run typecheck && bun test && bunx jsr publish"
+    "prepublishOnly": "bun run typecheck && bun test && bun run build",
+    "release": "bun publish"
   },
   "peerDependencies": {
     "tailwindcss": "^4.1.0",
